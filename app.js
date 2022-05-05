@@ -4,20 +4,27 @@ const cors = require("cors");
 
 const auth = require("./routes/auth");
 const ad = require("./routes/ad");
+const user = require("./routes/user");
 
 const app = express();
 
-app.use(cors());
+const corsConfig = {
+    credentials: true,
+    origin: true,
+};
+
+app.use(cors(corsConfig));
 app.use(express.json());
 
 app.use("/api/auth", auth);
 app.use("/api/ad", ad);
+app.use("/api/user", user);
 
 const port = process.env.PORT || 9000;
 
 mongoose
     .connect(
-        "mongodb+srv://wad-user:wadproject@cluster0.yirzk.mongodb.net/CattyLove?retryWrites=true&w=majority",
+        process.env.MONGODB_CONNECTION_STRING,
         { useNewUrlParser: true }
     )
     .then(() => {

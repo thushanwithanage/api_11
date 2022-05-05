@@ -7,10 +7,11 @@ const catSchema = new mongoose.Schema({
     },
     gender: {
         type: String,
-        required: true
+        default: "Male"
     },
     description: {
-        type: String
+        type: String,
+        minlength: 5
     },
     likecount: {
         type: Number,

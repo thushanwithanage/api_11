@@ -1,17 +1,24 @@
 const express = require("express");
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
+const cors = require("cors");
 
 const Cat = require("../models/cat");
 
 const router = express.Router();
+router.use(cors());
 
-SECRET_KEY = "123456789";
+const jwtValidator = require("../middlewares/auth/jwtvalidator");
+router.use(jwtValidator);
+
+const searchbynamevalidator = require("../middlewares/ad/searchbynamevalidator");
+const searchbygendervalidator = require("../middlewares/ad/searchbygendervalidator");
+const inputvalidator = require("../middlewares/ad/inputvalidator");
+const paramidvalidator = require("../middlewares/ad/paramidvalidator");
+const updatevalidator = require("../middlewares/ad/updatevalidator");
 
 router.get("/", async (req, res) => {
     try {
         let cats = await Cat.find().sort({ cname: "asc" });
-        return res.send(cats);
+        return res.status(200).send(cats);
     }
     catch (e) {
         return res.status(500).send("Error: " + e.message);
@@ -19,14 +26,14 @@ router.get("/", async (req, res) => {
 });
 
 // http://localhost:9000/api/ad/cat?cname=Cat%2001
-router.get("/:cname", async (req, res) => {
+router.get("/:cname", searchbynamevalidator, async (req, res) => {
     try {
         let cat = await Cat.find({ cname: req.query.cname });
         if(cat == null)
         {
             cat = new Cat();
         }
-        return res.send(cat);
+        return res.status(200).send(cat);
     }
     catch (e) {
         return res.status(500).send("Error: " + e.message);
@@ -34,38 +41,19 @@ router.get("/:cname", async (req, res) => {
 });
 
 // http://localhost:9000/api/ad/cat/cat?cgender=Male
-router.get("/cat/:cgender", async (req, res) => {
+router.get("/cat/:cgender", searchbygendervalidator, async (req, res) => {
     try {
         let cats = await Cat.find({ gender: req.query.cgender });
-        return res.send(cats);
+        return res.status(200).send(cats);
     }
     catch (e) {
         return res.status(500).send("Error: " + e.message);
     }
 });
 
-router.post("/", async (req, res) => {
-
-    /*const token = req.header("x-jwt-token");
-    if (!token) {
-        console.log("Access token not found");
-        return res.status(401).send("Access token not found");
-    }
-
-    try {
-        jwt.verify(token, SECRET_KEY);
-    } catch (e) {
-        console.log("Invalid token");
-        return res.status(400).send("Invalid token");
-    }
-
-    let decoded = jwt.decode(token, SECRET_KEY);
-    if (!decoded.isAdmin) {
-        console.log("Access forbidden");
-        return res.status(403).send("Access forbidden")
-    }*/
-
-    try {
+router.post("/", inputvalidator, async (req, res) => {
+    try 
+    {
         let cat = new Cat({
             cname: req.body.cname,
             gender: req.body.gender,
@@ -77,7 +65,7 @@ router.post("/", async (req, res) => {
         cat = await cat.save();
 
         if (cat._id == null) {
-            return res.status(400).send("Data insertion failed");
+            return res.status(400).send("Failed to insert data");
         }
 
         return res.status(200).send(cat);
@@ -87,33 +75,47 @@ router.post("/", async (req, res) => {
     }
 });
 
-router.delete("/:catId", async (req, res) => {
-    /*const token = req.header("x-jwt-token");
-    if (!token) {
-        console.log("Access token not found");
-        return res.status(401).send("Access token not found");
-    };
+router.put("/:catId", [paramidvalidator, updatevalidator], async (req, res) => {
+    try
+    {
+        let cat = await Cat.findById({_id: req.params.catId})
+        if(cat == null)
+        {
+            return res.status(404).send("Record not found");
+        }
 
-    try {
-        jwt.verify(token, SECRET_KEY);
+        let result = await Cat.findOneAndUpdate(
+            {_id: req.params.catId},
+            req.body,
+            { new : true }
+        );
+
+        if(result == null)
+        {
+            return res.status(400).send("Failed to update data");
+        }
+
+        return res.status(200).send(result);
     }
     catch (e) {
-        console.log("Invalid token");
-        return res.status(400).send("Invalid token");
+        return res.status(500).send("Error : " + e.message);
     }
+});
 
-    let decoded = jwt.decode(token, SECRET_KEY);
-    if (!decoded.isAdmin) {
-        return res.status(403).send("Access forbidden")
-    }*/
+router.delete("/:catId", paramidvalidator, async (req, res) => {
+    try
+    {
+        let cat = await Cat.findOneAndDelete({ _id: req.params.catId });
 
-    let cat = await Cat.findOneAndDelete({ _id: req.params.catId });
+        if (!cat) {
+            return res.status(404).send("Record not found");
+        }
 
-    if (!cat) {
-        return res.status(404).send("Not found");
+        res.status(200).send(cat);
     }
-
-    res.status(200).send(cat);
+    catch (e) {
+        return res.status(500).send("Error : " + e.message);
+    }
 });
 
 module.exports = router;
